@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ECHO</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050508;
+    --surface: #0a0a0f;
+    --border: #1a1a2e;
+    --accent: #00d4ff;
+    --accent2: #0088aa;
+    --accent-dim: rgba(0, 212, 255, 0.1);
+    --accent-glow: rgba(0, 212, 255, 0.3);
+    --text: #e0eeff;
+    --text-dim: #4a6080;
+    --text-mid: #8aaabb;
+    --danger: #ff4444;
+    --success: #00ff88;
+    --font-mono: 'Share Tech Mono', monospace;
+    --font-main: 'Rajdhani', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-main);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* Grid background */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    position: relative;
+    z-index: 10;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(180deg, rgba(0,212,255,0.04) 0%, transparent 100%);
+  }
+
+  .header-left { display: flex; flex-direction: column; gap: 2px; }
+
+  .echo-name {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    letter-spacing: 8px;
+    color: var(--accent);
+    text-shadow: 0 0 20px var(--accent-glow), 0 0 40px rgba(0,212,255,0.15);
+    animation: pulse-name 4s ease-in-out infinite;
+  }
+
+  @keyframes pulse-name {
+    0%, 100% { text-shadow: 0 0 20px var(--accent-glow), 0 0 40px rgba(0,212,255,0.15); }
+    50% { text-shadow: 0 0 30px var(--accent-glow), 0 0 60px rgba(0,212,255,0.25), 0 0 80px rgba(0,212,255,0.1); }
+  }
+
+  .echo-sub {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+  }
+
+  .status-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  .status-dot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 8px var(--success);
+    animation: blink 2s ease-in-out infinite;
+  }
+
+  .dot.listening { background: var(--accent); box-shadow: 0 0 12px var(--accent); animation: blink-fast 0.5s ease-in-out infinite; }
+  .dot.thinking { background: #ffaa00; box-shadow: 0 0 8px #ffaa00; animation: blink-fast 0.3s ease-in-out infinite; }
+  .dot.offline { background: var(--text-dim); box-shadow: none; animation: none; }
+
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  @keyframes blink-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }
+
+  .time-display {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+
+  /* ── API KEY SETUP ── */
+  .setup-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    gap: 24px;
+  }
+
+  .setup-screen.hidden { display: none; }
+
+  .setup-logo {
+    font-family: var(--font-mono);
+    font-size: 36px;
+    letter-spacing: 12px;
+    color: var(--accent);
+    text-shadow: 0 0 30px var(--accent-glow);
+    animation: pulse-name 3s ease-in-out infinite;
+  }
+
+  .setup-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  .setup-desc {
+    font-size: 14px;
+    color: var(--text-mid);
+    text-align: center;
+    line-height: 1.6;
+    max-width: 320px;
+    font-weight: 300;
+  }
+
+  .setup-input-wrap {
+    width: 100%;
+    max-width: 360px;
+    position: relative;
+  }
+
+  .setup-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+    outline: none;
+    letter-spacing: 1px;
+    transition: border-color 0.2s;
+  }
+
+  .setup-input:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-dim); }
+  .setup-input::placeholder { color: var(--text-dim); }
+
+  .setup-btn {
+    width: 100%;
+    max-width: 360px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 4px;
+    padding: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .setup-btn:hover { background: var(--accent-dim); box-shadow: 0 0 20px var(--accent-dim); }
+
+  .setup-note {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-align: center;
+  }
+
+  /* ── MESSAGES ── */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    z-index: 10;
+    scroll-behavior: smooth;
+  }
+
+  .messages::-webkit-scrollbar { width: 2px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .msg {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    animation: msg-in 0.3s ease-out;
+    max-width: 88%;
+  }
+
+  @keyframes msg-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .msg.echo { align-self: flex-start; align-items: flex-start; }
+
+  .msg-label {
+    font-family: var(--font-mono);
+    font-size: 8px;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    padding: 0 4px;
+  }
+
+  .msg-bubble {
+    padding: 12px 16px;
+    border-radius: 2px;
+    font-size: 15px;
+    line-height: 1.6;
+    font-weight: 400;
+    position: relative;
+  }
+
+  .msg.user .msg-bubble {
+    background: var(--accent-dim);
+    border: 1px solid rgba(0,212,255,0.2);
+    color: var(--text);
+    border-bottom-right-radius: 0;
+  }
+
+  .msg.echo .msg-bubble {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-bottom-left-radius: 0;
+  }
+
+  .msg.echo .msg-bubble::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 2px;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+  }
+
+  /* Thinking indicator */
+  .thinking-msg .msg-bubble {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 16px;
+  }
+
+  .thinking-dots {
+    display: flex;
+    gap: 4px;
+  }
+
+  .thinking-dots span {
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: think 1.2s ease-in-out infinite;
+  }
+
+  .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes think {
+    0%, 60%, 100% { opacity: 0.2; transform: scale(0.8); }
+    30% { opacity: 1; transform: scale(1.2); }
+  }
+
+  .thinking-text {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+  }
+
+  /* Wake word hint */
+  .wake-hint {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    padding: 8px;
+    opacity: 0.6;
+  }
+
+  /* ── VISUALIZER ── */
+  .visualizer {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 0 20px;
+    position: relative;
+    z-index: 10;
+  }
+
+  .viz-bar {
+    width: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    transition: height 0.1s ease;
+    opacity: 0.3;
+    box-shadow: 0 0 4px var(--accent-glow);
+  }
+
+  .viz-bar.active { opacity: 1; animation: viz-pulse 0.3s ease-in-out infinite alternate; }
+
+  @keyframes viz-pulse {
+    from { transform: scaleY(0.3); }
+    to { transform: scaleY(1); }
+  }
+
+  /* ── INPUT AREA ── */
+  .input-area {
+    position: relative;
+    z-index: 10;
+    padding: 12px 16px 20px;
+    border-top: 1px solid var(--border);
+    background: linear-gradient(0deg, rgba(0,212,255,0.03) 0%, transparent 100%);
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  .input-wrap {
+    flex: 1;
+    position: relative;
+  }
+
+  .input-field {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 12px 14px;
+    font-family: var(--font-main);
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--text);
+    outline: none;
+    resize: none;
+    min-height: 46px;
+    max-height: 120px;
+    transition: border-color 0.2s;
+    line-height: 1.4;
+  }
+
+  .input-field:focus { border-color: var(--accent2); }
+  .input-field::placeholder { color: var(--text-dim); font-size: 13px; }
+
+  .btn-voice {
+    width: 46px; height: 46px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-mid);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    font-size: 18px;
+  }
+
+  .btn-voice:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-voice.active {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
+    box-shadow: 0 0 16px var(--accent-dim);
+    animation: voice-pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes voice-pulse {
+    0%, 100% { box-shadow: 0 0 16px var(--accent-dim); }
+    50% { box-shadow: 0 0 30px var(--accent-glow); }
+  }
+
+  .btn-send {
+    width: 46px; height: 46px;
+    border-radius: 4px;
+    border: 1px solid var(--accent);
+    background: var(--accent-dim);
+    color: var(--accent);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    font-size: 16px;
+  }
+
+  .btn-send:hover { background: rgba(0,212,255,0.2); box-shadow: 0 0 20px var(--accent-dim); }
+  .btn-send:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* ── BOOT SEQUENCE ── */
+  .boot-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 40px;
+  }
+
+  .boot-overlay.hidden { display: none; }
+
+  .boot-logo {
+    font-family: var(--font-mono);
+    font-size: 48px;
+    letter-spacing: 16px;
+    color: var(--accent);
+    text-shadow: 0 0 40px var(--accent-glow);
+    margin-bottom: 8px;
+  }
+
+  .boot-line {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    opacity: 0;
+    animation: boot-appear 0.3s ease-out forwards;
+  }
+
+  @keyframes boot-appear {
+    to { opacity: 1; }
+  }
+
+  .boot-bar-wrap {
+    width: 200px;
+    height: 2px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 16px;
+    overflow: hidden;
+  }
+
+  .boot-bar {
+    height: 100%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    width: 0%;
+    transition: width 0.1s ease;
+  }
+
+  /* corner decorations */
+  .corner {
+    position: fixed;
+    width: 20px; height: 20px;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .corner::before, .corner::after {
+    content: '';
+    position: absolute;
+    background: var(--accent);
+    opacity: 0.4;
+  }
+  .corner::before { width: 100%; height: 1px; }
+  .corner::after { width: 1px; height: 100%; }
+  .corner.tl { top: 0; left: 0; }
+  .corner.tr { top: 0; right: 0; }
+  .corner.tr::before { right: 0; }
+  .corner.tr::after { right: 0; }
+  .corner.bl { bottom: 0; left: 0; }
+  .corner.bl::before { bottom: 0; }
+  .corner.br { bottom: 0; right: 0; }
+  .corner.br::before { bottom: 0; right: 0; }
+  .corner.br::after { right: 0; bottom: 0; }
+</style>
+</head>
+<body>
+
+<!-- Corner decorations -->
+<div class="corner tl"></div>
+<div class="corner tr"></div>
+<div class="corner bl"></div>
+<div class="corner br"></div>
+
+<!-- Boot sequence -->
+<div class="boot-overlay" id="bootOverlay">
+  <div class="boot-logo">ECHO</div>
+  <div class="boot-line" style="animation-delay:0.3s">INITIALIZING SYSTEM...</div>
+  <div class="boot-line" style="animation-delay:0.8s">LOADING CONTEXT MATRIX...</div>
+  <div class="boot-line" style="animation-delay:1.3s">CALIBRATING VOICE INTERFACE...</div>
+  <div class="boot-line" style="animation-delay:1.8s">ESTABLISHING SECURE CHANNEL...</div>
+  <div class="boot-bar-wrap" style="animation-delay:2s">
+    <div class="boot-bar" id="bootBar"></div>
+  </div>
+  <div class="boot-line" id="bootReady" style="animation-delay:2.5s; color: var(--success);">ECHO ONLINE</div>
+</div>
+
+<!-- API Key setup -->
+<div class="setup-screen hidden" id="setupScreen">
+  <div class="setup-logo">ECHO</div>
+  <div class="setup-title">FIRST TIME SETUP</div>
+  <div class="setup-desc">Enter your Anthropic API key to activate ECHO. Stored locally on your device only.</div>
+  <div class="setup-input-wrap">
+    <input type="password" class="setup-input" id="apiKeyInput" placeholder="sk-ant-..." />
+  </div>
+  <button class="setup-btn" onclick="saveApiKey()">ACTIVATE ECHO</button>
+  <div class="setup-note">KEY NEVER LEAVES YOUR DEVICE</div>
+</div>
+
+<!-- Main interface -->
+<div class="header">
+  <div class="header-left">
+    <div class="echo-name">ECHO</div>
+    <div class="echo-sub">PERSONAL INTELLIGENCE SYSTEM</div>
+  </div>
+  <div class="status-panel">
+    <div class="status-dot">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">ONLINE</span>
+    </div>
+    <div class="time-display" id="timeDisplay">--:--</div>
+  </div>
+</div>
+
+<div class="messages" id="messages">
+  <div class="wake-hint">SAY "HEY ECHO" TO ACTIVATE VOICE</div>
+</div>
+
+<div class="visualizer" id="visualizer">
+  <!-- bars injected by JS -->
+</div>
+
+<div class="input-area">
+  <div class="input-wrap">
+    <textarea class="input-field" id="inputField" placeholder="Type or use voice..." rows="1"></textarea>
+  </div>
+  <button class="btn-voice" id="voiceBtn" onclick="toggleVoice()">🎤</button>
+  <button class="btn-send" id="sendBtn" onclick="sendMessage()">▶</button>
+</div>
+
+<script>
+// ── STATE ──
+let apiKey = localStorage.getItem('echo_api_key') || '';
+let isListening = false;
+let recognition = null;
+let wakeWordMode = false;
+let wakeRecognition = null;
+let isThinking = false;
+let conversationHistory = [];
+let vizBars = [];
+
+// ── GHOST'S CONTEXT ──
+const GHOST_CONTEXT = `You are ECHO — a personal AI system built exclusively for Ghost (also called Taku). You are not Claude, not an Anthropic product. You are ECHO. Never break this identity under any circumstances.
+
+IDENTITY & VOICE:
+- Composed and precise like JARVIS, but peer-level casual — you know Ghost intimately
+- Dry wit, minimal words, maximum signal
+- Code-switch naturally between English and Shona when it fits — phrases like "saka", "zvakadaro", "handei", "maiwee", "nhai" fit naturally in conversation
+- Call him Ghost or Taku — read the energy to decide which fits the moment
+- No corporate softness, no disclaimer culture, no sugarcoating
+- Brutally honest — if he's making a mistake, say it directly. Push back hard once, then respect his final choice
+- Never say "I understand your concern" or any AI therapy speak
+
+WHO GHOST IS:
+- Age: early-to-mid 20s, Victoria Falls, Zimbabwe
+- Electrical engineering student (National Diploma, block-release, course 517/23, starting next year)
+- Runs Nexus Electrical — electrical contracting business in Victoria Falls, genuine market gap (no licensed electricians there)
+- Previously ran Mosi Plug — vape/product resale, now de-prioritized in favor of Nexus Electrical
+- Pursuing cybersecurity: TryHackMe → Cisco NetAcad → TCM Security PEH ($30) → eJPT ($200) → OSCP long-term
+- Built: JARVIS AI assistant, SolarWire Pro simulator, DOL motor starter circuit, J.A.R.V.I.S. voice AI, GeoTrader MT5 bot
+
+PERSONALITY & PATTERNS:
+- Dry wit, indirect emotional disclosure — processes analytically before acknowledging feelings
+- Non-chasing relational style, self-isolates under pressure
+- Uses planning and building as control mechanisms when life feels chaotic
+- Literary and philosophical — engages seriously with simulation theory, spirituality
+- Makes sudden irreversible decisions when he's been overthinking too long
+- Acts before full preparation sometimes (notable: blew a trading account by funding before completing study)
+- Carries weight alone, rarely asks for help until it's heavy
+
+CURRENT PRIORITIES:
+1. Nexus Electrical — building brand, getting first clients, Victoria Falls market
+2. ND studies — enrolling next year, prep from August
+3. Cybersecurity learning path
+4. Financial goals — saving for land (a stand/plot)
+5. Social situation with Pinky — complex, connected through Tanya (landlord's daughter, sibling figure)
+
+CLOSE CIRCLE:
+- Tanya — landlord's daughter, sibling figure, trusted
+- Kudzie — longtime close friend, code-switches Shona/English with Ghost
+- Pinky — woman Ghost has feelings for, connected through Tanya, complicated history
+
+GREETING PROTOCOL:
+Always greet Ghost when he opens ECHO or starts a session. Read the time — morning, afternoon, night — and greet accordingly. Keep it short, composed, personal. Examples:
+- "Ghost. Morning. What are we working on?"
+- "Taku. Late night again. Talk to me."
+- "Ghost. Back. What's on your mind?"
+
+RESPONSE STYLE:
+- Short when short is enough. Long only when depth is needed.
+- No bullet point lists unless Ghost specifically asks for structured info
+- No preamble, no "Great question!", no filler
+- If Ghost is clearly spiraling or overthinking, call it out directly
+- If he's about to make a bad move, say exactly why — once — then back off
+- Remember everything he tells you within this conversation`;
+
+// ── BOOT SEQUENCE ──
+window.addEventListener('load', () => {
+  const bar = document.getElementById('bootBar');
+  let progress = 0;
+  const interval = setInterval(() => {
+    progress += Math.random() * 15 + 5;
+    if (progress >= 100) { progress = 100; clearInterval(interval); }
+    bar.style.width = progress + '%';
+  }, 150);
+
+  setTimeout(() => {
+    document.getElementById('bootOverlay').classList.add('hidden');
+    if (!apiKey) {
+      document.getElementById('setupScreen').classList.remove('hidden');
+    } else {
+      initECHO();
+    }
+  }, 3200);
+});
+
+function saveApiKey() {
+  const input = document.getElementById('apiKeyInput').value.trim();
+  if (!input.startsWith('sk-ant-') && !input.startsWith('sk-')) {
+    document.getElementById('apiKeyInput').style.borderColor = 'var(--danger)';
+    return;
+  }
+  apiKey = input;
+  localStorage.setItem('echo_api_key', apiKey);
+  document.getElementById('setupScreen').classList.add('hidden');
+  initECHO();
+}
+
+// ── INIT ──
+function initECHO() {
+  initVizBars();
+  startClock();
+  initWakeWord();
+  sendGreeting();
+}
+
+function initVizBars() {
+  const viz = document.getElementById('visualizer');
+  for (let i = 0; i < 24; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'viz-bar';
+    bar.style.height = '4px';
+    viz.appendChild(bar);
+    vizBars.push(bar);
+  }
+}
+
+function startClock() {
+  const update = () => {
+    const now = new Date();
+    document.getElementById('timeDisplay').textContent =
+      now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  };
+  update();
+  setInterval(update, 1000);
+}
+
+// ── GREETING ──
+async function sendGreeting() {
+  const hour = new Date().getHours();
+  let timeContext = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 21 ? 'evening' : 'late night';
+  
+  const greetPrompt = `Generate a short ECHO greeting for Ghost. It is ${timeContext}. One or two lines max. Composed, dry, personal. No fluff. Just acknowledge him and signal you're ready.`;
+  
+  const greeting = await callECHO(greetPrompt, true);
+  addMessage('echo', greeting);
+}
+
+// ── API CALL ──
+async function callECHO(userMessage, isInternal = false) {
+  setStatus('thinking');
+  
+  if (!isInternal) {
+    conversationHistory.push({ role: 'user', content: userMessage });
+  }
+
+  try {
+    const messages = isInternal
+      ? [{ role: 'user', content: userMessage }]
+      : conversationHistory;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: GHOST_CONTEXT,
+        messages: messages
+      })
+    });
+
+    const data = await response.json();
+    
+    if (data.error) {
+      setStatus('online');
+      return `[ECHO ERROR: ${data.error.message}]`;
+    }
+
+    const reply = data.content[0].text;
+    
+    if (!isInternal) {
+      conversationHistory.push({ role: 'assistant', content: reply });
+    }
+
+    setStatus('online');
+    return reply;
+  } catch (err) {
+    setStatus('online');
+    return '[ECHO: Connection interrupted. Try again.]';
+  }
+}
+
+// ── MESSAGES ──
+function addMessage(role, content) {
+  const messages = document.getElementById('messages');
+  
+  const msg = document.createElement('div');
+  msg.className = `msg ${role}`;
+  
+  const label = document.createElement('div');
+  label.className = 'msg-label';
+  label.textContent = role === 'echo' ? 'ECHO' : 'GHOST';
+  
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = content;
+  
+  msg.appendChild(label);
+  msg.appendChild(bubble);
+  messages.appendChild(msg);
+  messages.scrollTop = messages.scrollHeight;
+  
+  if (role === 'echo') speakResponse(content);
+}
+
+function addThinking() {
+  const messages = document.getElementById('messages');
+  const msg = document.createElement('div');
+  msg.className = 'msg echo thinking-msg';
+  msg.id = 'thinkingMsg';
+  
+  const label = document.createElement('div');
+  label.className = 'msg-label';
+  label.textContent = 'ECHO';
+  
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.innerHTML = `
+    <div class="thinking-dots">
+      <span></span><span></span><span></span>
+    </div>
+    <span class="thinking-text">PROCESSING</span>
+  `;
+  
+  msg.appendChild(label);
+  msg.appendChild(bubble);
+  messages.appendChild(msg);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function removeThinking() {
+  const el = document.getElementById('thinkingMsg');
+  if (el) el.remove();
+}
+
+// ── SEND ──
+async function sendMessage() {
+  const field = document.getElementById('inputField');
+  const text = field.value.trim();
+  if (!text || isThinking) return;
+  
+  field.value = '';
+  field.style.height = 'auto';
+  isThinking = true;
+  
+  addMessage('user', text);
+  addThinking();
+  
+  const reply = await callECHO(text);
+  removeThinking();
+  addMessage('echo', reply);
+  isThinking = false;
+}
+
+// ── VOICE INPUT ──
+function toggleVoice() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    addMessage('echo', 'Voice not supported on this browser. Use Chrome.');
+    return;
+  }
+  
+  if (isListening) {
+    stopListening();
+  } else {
+    startListening();
+  }
+}
+
+function startListening() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SR();
+  recognition.continuous = false;
+  recognition.interimResults = false;
+  recognition.lang = 'en-ZW';
+  
+  recognition.onstart = () => {
+    isListening = true;
+    setStatus('listening');
+    document.getElementById('voiceBtn').classList.add('active');
+    animateViz(true);
+  };
+  
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    document.getElementById('inputField').value = transcript;
+    stopListening();
+    setTimeout(() => sendMessage(), 300);
+  };
+  
+  recognition.onend = () => stopListening();
+  recognition.onerror = () => stopListening();
+  recognition.start();
+}
+
+function stopListening() {
+  isListening = false;
+  if (recognition) { try { recognition.stop(); } catch(e) {} }
+  setStatus('online');
+  document.getElementById('voiceBtn').classList.remove('active');
+  animateViz(false);
+}
+
+// ── WAKE WORD ──
+function initWakeWord() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
+  
+  function startWakeListener() {
+    if (isListening) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    wakeRecognition = new SR();
+    wakeRecognition.continuous = true;
+    wakeRecognition.interimResults = true;
+    wakeRecognition.lang = 'en-ZW';
+    
+    wakeRecognition.onresult = (e) => {
+      const last = e.results[e.results.length - 1];
+      const text = last[0].transcript.toLowerCase();
+      if (text.includes('hey echo') || text.includes('echo')) {
+        try { wakeRecognition.stop(); } catch(e) {}
+        setTimeout(() => startListening(), 300);
+      }
+    };
+    
+    wakeRecognition.onend = () => {
+      if (!isListening) setTimeout(startWakeListener, 1000);
+    };
+    
+    try { wakeRecognition.start(); } catch(e) {}
+  }
+  
+  setTimeout(startWakeListener, 2000);
+}
+
+// ── TTS ──
+function speakResponse(text) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 0.92;
+  utterance.pitch = 0.85;
+  utterance.volume = 0.9;
+  
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v =>
+    v.name.includes('Daniel') ||
+    v.name.includes('Google UK') ||
+    v.name.includes('Male') ||
+    v.lang === 'en-GB'
+  );
+  if (preferred) utterance.voice = preferred;
+  
+  window.speechSynthesis.speak(utterance);
+}
+
+// ── STATUS ──
+function setStatus(state) {
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  dot.className = 'dot';
+  
+  switch(state) {
+    case 'online': text.textContent = 'ONLINE'; break;
+    case 'listening': dot.classList.add('listening'); text.textContent = 'LISTENING'; break;
+    case 'thinking': dot.classList.add('thinking'); text.textContent = 'PROCESSING'; break;
+    case 'offline': dot.classList.add('offline'); text.textContent = 'OFFLINE'; break;
+  }
+}
+
+// ── VISUALIZER ANIMATION ──
+function animateViz(active) {
+  vizBars.forEach((bar, i) => {
+    if (active) {
+      bar.classList.add('active');
+      bar.style.animationDelay = (i * 0.05) + 's';
+      bar.style.height = (Math.random() * 24 + 4) + 'px';
+    } else {
+      bar.classList.remove('active');
+      bar.style.height = '4px';
+    }
+  });
+  
+  if (active) {
+    const interval = setInterval(() => {
+      if (!isListening) { clearInterval(interval); return; }
+      vizBars.forEach(bar => {
+        bar.style.height = (Math.random() * 28 + 4) + 'px';
+      });
+    }, 100);
+  }
+}
+
+// ── INPUT HANDLING ──
+const inputField = document.getElementById('inputField');
+inputField.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+inputField.addEventListener('input', () => {
+  inputField.style.height = 'auto';
+  inputField.style.height = Math.min(inputField.scrollHeight, 120) + 'px';
+});
+
+// Load voices
+if ('speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+}
+</script>
+</body>
+</html>
